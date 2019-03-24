@@ -1,73 +1,35 @@
+require 'byebug'
+
 class BookStore
-  DISCOUNT = {
-    0 => 0,
-    1 => 0,
-    2 => 5,
-    3 => 10,
-    4 => 20,
-    5 => 25
-  }
-  @groups = {}
+  PRICE = [
+    nil,
+    8.0,
+    8.0 * 2 * 0.95,
+    8.0 * 3 * 0.90,
+    8.0 * 4 * 0.80,
+    8.0 * 5 * 0.75,
+  ]
 
   def self.calculate_price(basket)
-    return 0 if basket.empty?
-    best_price = Float::INFINITY
-    make_groups(basket).each do |group|
-      current_price = price(group)
-      if current_price < best_price
-        best_price = current_price
-      end
+    price = 0
+    book_sets_for(basket).each do |book_set|
+      price += PRICE[book_set.size]
     end
-    best_price
+    price
   end
 
-  def self.make_groups(basket)
-    return [] if basket.empty?
-    return [[basket]] if basket.length == 1
-
-    if @groups.key?(basket)
-      return @groups[basket]
-    end
-
-    results = make_groups(basket[1..-1])
-    item = basket.first
-    groups = []
-    results.each do |result|
-      groups << result + [[item]]
-      result.each do |sub_result|
-        # Prune tree by ignoring sub groups
-        # with duplicate items.
-        if !sub_result.include?(item)
-          other_results = result.select{|r| r.object_id != sub_result.object_id}
-          this_result = sub_result + [item]
-          groups << other_results + [this_result]
-        end
-      end
-    end
-    @groups[basket] = groups
-    groups
-  end
-
-  def self.price(groups)
-    # memoize prices so we only calculate once per group.
-    @prices = {}
-    groups.sum do |g|
-      if @prices.key?(g)
-        @prices[g]
+  def self.book_sets_for(basket)
+    book_sets = []
+    priority = {1 => 8, 2 => 1, 3 => 10, 4 => 9, 5 => 1}
+    basket.each do |book|
+      if book_sets.all? {|s| s.include?(book)}
+        book_sets << [book]
       else
-        @prices[g] = BookStore.new(g).calculate
+        possible_sets = book_sets.reject {|s| s.include?(book)}
+        ideal_set = possible_sets.sort_by {|s| priority[s.size]}.last
+        ideal_set << book
       end
     end
-  end
-
-  def initialize(items)
-    @items = items
-  end
-
-  def calculate
-    group_count = @items.uniq.count
-    full_price = (@items.length - group_count) * 8.0
-    discount = DISCOUNT[group_count] || 0
-    full_price + (8.00 * group_count) * (100 - discount) / 100
+    book_sets
   end
 end
